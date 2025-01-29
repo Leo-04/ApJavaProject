@@ -1,0 +1,13 @@
+Join:
+Client joins the rooom
+    CLIENT: ID
+    SERVER: JOINED <false|true>
+    CLIENT: JOINED
+
+Quit:
+Client quits
+    CLIENT: QUIT
+
+Quit:
+Server tells client to quit
+    SERVER: QUIT

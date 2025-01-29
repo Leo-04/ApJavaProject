@@ -1,0 +1,121 @@
+Sever
+	POST
+	HOSTNAME
+Client
+	ID
+	IP
+	POST
+CLI
+	Show messages
+	Send group mesages
+	Send private message
+Server Assigen cordinator
+current coordinator needs to be told (Cordinator needs to be start informed)
+Every so often, active group members by checking periodically
+Some way of getting all IDs, IPs, and COrdinator
+
+
+
+
+
+
+Server
+	Mutiple clients
+	Pick one "coordinator"
+	Kepptrack of messages
+		Group
+		Private
+	Polling for mesages
+
+Client
+	Join
+	Send message
+		Group
+		Private
+
+
+
+
++[ID]: MESSAGE
+#[ID]: MESSAGE
+
+
+(1: Group message) (2: private) (3: memeber details) (4: quit): 2
+ID: 001...
+Message: ouehgiheijg
+
+
+
+
+
+- CLI
+- group chat
+- networked distributed system???
+- command-line parameters
+	- ID
+	- PORT
+
+
+If a member is the first connection in the group, the member automatically becomes the coordinator
+
+informed about the details of the current coordinator
+
+coordinator needs to know whos connected every 20secs
+
+Any member can request details of existing members from the coordinator and will receive everyone's IDs, IP addresses and ports including the current group coordinator.
+
+send private or broadcast messages
+
+Anyone can leave the group at any time, however, if the coordinator leaves, then any existing member will become a coordinator
+
+ctrl-C exit
+
+
+
+
+
+Group chat + private messages
+	- One leader (coordinator)
+		- gets details every 20sec
+		- Has to be one
+		- Is told when becoming one
+	- Others
+		- ask for details
+		- Told current cordinator
+		
+Input:
+	Send Private
+	Send broadcast
+	Request data
+	Quit
+
+Server commands:
+	Request data
+		- Request ()
+		- JSON {CINDEX, [ALL USERS]}
+	You are now coordinator
+		- Byte
+		- Ok
+	Private message
+		- {ID:..., MESSAGE: ...}
+		- {ID:..., MESSAGE: ...}
+	broadcast message
+		- {MESSAGE: ...}
+		- {MESSAGE: ...}
+	ping
+		- Ping
+		- Pong / OK
+	quit
+		- On Byte
+		- NAN
+	join (current cordinator)
+		- ID
+		- BOOL (if succseforly joined)
+	INVALID
+		- NAN
+		- Send back INVALID HEADER
+		
+
+- JUnit tests for every class
+- design patterns (please for the love of good code good)
+- Fault tolerance --> assume the worst
