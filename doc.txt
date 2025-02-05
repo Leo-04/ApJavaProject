@@ -1,5 +1,5 @@
 Join:
-Client joins the rooom
+Client joins the room
     CLIENT: ID
     SERVER: JOINED <false|true>
     CLIENT: JOINED

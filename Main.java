@@ -3,21 +3,32 @@ package ApJavaProject;
 import java.io.IOException;
 
 public class Main extends Thread implements Cli {
-    protected Client client = null;
+    protected Client client;
 
     public Main()  {
         try {
             client = new Client("0.0.0.0", 4321, "Leo");
         } catch (IOException e) {
             System.out.println("Cannot connect to server");
-            return;
         }
     }
+
     /*
      * Runs the client code to read incoming messages from server
      */
     @Override public void run() {
-        client.loopIncomingMessages();
+        while (!client.quit){
+            synchronized (client){
+                String inp = input(">>>\n");
+                if (inp.equals("q")){
+                    client.sendMsg_Quit(client.self);
+                }
+                else
+                    client.send(client.self, inp);
+            }
+        }
+
+        client.close();
     }
     @Override
     public void start(){
@@ -25,18 +36,14 @@ public class Main extends Thread implements Cli {
             return;
         }
 
+        // Start input thread
         super.start();
 
-        while (!client.quit){
-            String inp = input(">>>\n");
-            if (inp.equals("q")){
-                client.sendMsg_Quit(client.self);
-            }
-            else
-                client.send(client.self, inp);
-        }
+        // Loop Client
+        client.loopIncomingMessages();
 
-        client.close();
+        // Stop input thread
+        interrupt();
     }
 
     public static void main(String[] args) {

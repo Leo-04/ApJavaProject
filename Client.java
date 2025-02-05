@@ -9,6 +9,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
+/*
+* The client that keeps track of messages sent to it
+ */
 public class Client implements MessageHandler{
     protected List<Message> messages;
     protected Logger log;
@@ -40,18 +43,7 @@ public class Client implements MessageHandler{
     public void loopIncomingMessages() {
         while (!quit) {
             try {
-                //Check for data
-                if (!self.in().ready()){
-                    continue;
-                }
-
-                String msg = receive(self);
-
-                log.info("Received message from server: " + msg);
-
-                String[] data = decodeMessage(msg);
-
-                handelReceivedMessage(data[0], self, data[1]);
+                handelUserIO(self);
             } catch (IOException e) {
                 log.warning("Error within Server::run(), ignoring to continue with loop");
                 log.throwing("Server", "run", e);
@@ -77,7 +69,7 @@ public class Client implements MessageHandler{
      * Handles "QUIT" message from server
      */
     @Override
-    public void handleMsg_Quit(User user, String data) {
+    public void handleMsg_Quit(User user) {
         log.info("Quitting");
         close();
     }
@@ -86,8 +78,8 @@ public class Client implements MessageHandler{
      * Handles "JOINED" response from the server
      */
     @Override
-    public void handleMsg_Join(User user, String did_join) {
-        if (did_join.equals("true")){
+    public void handleMsg_Join(User user, String[] args) {
+        if (args[0].equals("true")){
             log.info("We joined");
         } else {
             log.info("We cannot join, quitting");
@@ -99,8 +91,8 @@ public class Client implements MessageHandler{
      * Handles Unknown message from the server
      */
     @Override
-    public void handleMsg(String msg, User user, String data) {
-        log.warning("Unknown message received by client: " + msg + data);
+    public void handleMsg(char command, User user, String[] args) {
+        log.warning("Unknown message received by client " + command + ": " + Arrays.toString(args));
     }
 
     /*
@@ -108,9 +100,10 @@ public class Client implements MessageHandler{
      */
     @Override
     public void sendMsg_Join(User user, String did_join) {
-        // Send DI
+        // Send ID
         send(self, user.id());
-        send(self, JOINED);
+        // Send JOINED message
+        send(self, JOINED+"");
     }
 
     /*
@@ -119,7 +112,7 @@ public class Client implements MessageHandler{
     @Override
     public void sendMsg_Quit(User user) {
         quit = true;
-        send(self, QUIT);
+        send(self, QUIT+"");
     }
 
 
@@ -127,8 +120,8 @@ public class Client implements MessageHandler{
      * Not used
      */
     @Override
-    public void sendMsg(String msg, User user, String data) {
-        log.warning("Sending unknown message: " + msg + data);
+    public void sendMsg(char command, User user, String[] args) {
+        log.warning("Sending unknown message " + command + ": " + Arrays.toString(args));
     }
 
     /*
@@ -136,7 +129,7 @@ public class Client implements MessageHandler{
      */
     @Override
     public void send(User user, String msg) {
-        log.info("Sending: "+msg);
+        //log.info("Sending: "+msg);
         user.out().println(msg);
     }
 
@@ -150,8 +143,7 @@ public class Client implements MessageHandler{
 
         String msg = user.in().readLine();
 
-        if (msg != null)
-            log.info("Received: "+msg);
+        //log.info("Received: "+msg);
 
         return msg;
     }

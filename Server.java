@@ -7,10 +7,14 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
-//https://docs.oracle.com/javase/tutorial/networking/sockets/index.html
+
+/*
+* The server class that handles clients connecting to it and sending messages between them
+* Keeps a current list of users and who is the coordinator
+*/
 
 public class Server extends Thread implements MessageHandler{
     // Protected attributes
@@ -65,7 +69,6 @@ public class Server extends Thread implements MessageHandler{
     /*
     * Starts all server loops
      */
-
     @Override public void start(){
         if (socket == null){
             log.severe("Socket was not created");
@@ -85,20 +88,9 @@ public class Server extends Thread implements MessageHandler{
     @Override public void run(){
         while (!quit) {
             synchronized(users){
-                for(User user: users){
+                for(int i = users.size() - 1; i >= 0; i--){
                     try {
-                        if (!user.in().ready()){
-                            continue;
-                        }
-                        //Read msg
-                        String msg = receive(user);
-
-                        log.info("Message from user: " + user.id() + "\n\t" + msg);
-
-                        String[] data = decodeMessage(msg);
-
-                        // Handle data
-                        handelReceivedMessage(data[0], user, data[1]);
+                        handelUserIO(users.get(i));
                     } catch (IOException e) {
                         log.warning("Error within Server::run(), ignoring to continue with loop");
                     }
@@ -109,14 +101,15 @@ public class Server extends Thread implements MessageHandler{
 
     /*
     * Waits for a client to join and adds them to the server
-     */
+    */
     protected void loopIncomingClients() {
         // Loop forever
         while (!quit){
             try{
                 // Waiting for client
                 Socket clientSocket = socket.accept();
-                //Create streams
+
+                // Create streams
                 PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
@@ -135,23 +128,25 @@ public class Server extends Thread implements MessageHandler{
                     out,
                     in
                 );
-                log.info("User ID (is null: " +  (id == null) +  "): " + id);
-
-                sendMsg_Join(user, (id == null)? "false" : "true");
+                log.info("User ID (is" + ( (id == null)? "": " not") +" null): " + id);
 
                 if (id == null){
+                    // Exit, its invalid ID
                     log.info("Closing user socket");
 
                     in.close();
                     out.close();
                     clientSocket.close();
                 } else {
+                    // Send back join message
+                    sendMsg_Join(user, (id == null)? "false" : "true");
+
                     // Add user
                     addUser(user);
                 }
 
             } catch (IOException e){
-                //log.warning("Error within Server::loopIncomingClients(), ignoring to continue with loop: \n"+e.toString());
+                log.warning("Error within Server::loopIncomingClients(), ignoring to continue with loop: \n"+e.toString());
             }
         }
 
@@ -183,7 +178,7 @@ public class Server extends Thread implements MessageHandler{
      */
     protected String waitUserId(BufferedReader in) throws IOException {
         String id = in.readLine();
-        if (id.equals("")) {
+        if (id.isEmpty()) {
             return null;
         }
 
@@ -201,7 +196,7 @@ public class Server extends Thread implements MessageHandler{
      * Handles users sending the "QUIT" message
      */
     @Override
-    public void handleMsg_Quit(User user, String data) {
+    public void handleMsg_Quit(User user) {
         users.remove(user);
         log.info("User Quit: " + user.id());
 
@@ -218,11 +213,11 @@ public class Server extends Thread implements MessageHandler{
      * Handles users sending the "JOINED" message
      */
     @Override
-    public void handleMsg_Join(User user, String did_join) {
-        if (did_join.equals("")){
+    public void handleMsg_Join(User user, String[] args) {
+        if (args[0].isEmpty()){
             log.info("User Joined: " + user.id());
         } else {
-            send(user, JOINED);
+            send(user, JOINED+"");
         }
     }
 
@@ -230,8 +225,8 @@ public class Server extends Thread implements MessageHandler{
      * Handles users sending an unknown message
      */
     @Override
-    public void handleMsg(String msg, User user, String data) {
-        log.warning("Unknown message received by server: " + msg + data);
+    public void handleMsg(char command, User user, String[] args) {
+        log.warning("Unknown message received by client <"+ user.id() +"> " + command + ": " + Arrays.toString(args));
     }
 
     /*
@@ -239,7 +234,7 @@ public class Server extends Thread implements MessageHandler{
      */
     @Override
     public void sendMsg_Join(User user, String did_join) {
-        send(user, JOINED, did_join);
+        send(user, JOINED+did_join);
     }
 
     /*
@@ -247,12 +242,12 @@ public class Server extends Thread implements MessageHandler{
      */
     @Override
     public void sendMsg_Quit(User user) {
-        send(user, QUIT);
+        send(user, QUIT+"");
     }
 
     @Override
-    public void sendMsg(String msg, User user, String data) {
-        log.warning("Sending unknown message: " + msg + data);
+    public void sendMsg(char command, User user, String[] args) {
+        log.warning("Sending unknown message " + command + ": " + Arrays.toString(args));
     }
 
     /*
@@ -260,7 +255,8 @@ public class Server extends Thread implements MessageHandler{
      */
     @Override
     public void send(User user, String msg) {
-        log.info("Sending to <"+user.id()+"> "+msg);
+        //log.info("Sending to <"+user.id()+"> "+msg);
+
         user.out().println(msg);
     }
 
@@ -272,10 +268,10 @@ public class Server extends Thread implements MessageHandler{
         //Wait for data
         while (!user.in().ready()){}
 
+        //Read datra
         String msg = user.in().readLine();
 
-        if (msg != null)
-            log.info("Received from <"+user.id()+"> "+msg);
+        //log.info("Received from <"+user.id()+"> "+msg);
 
         return msg;
     }

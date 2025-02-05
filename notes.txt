@@ -36,9 +36,13 @@ Client
 
 
 
-+[ID]: MESSAGE
-#[ID]: MESSAGE
+HOUR:SEC +[ID]: MESSAGE
+HOUR:SEC #[ID]: MESSAGE
+HOUR:SEC # Hello from server (private)
+HOUR:SEC + hello to from server
 
+
+IF ID == ''
 
 (1: Group message) (2: private) (3: memeber details) (4: quit): 2
 ID: 001...
@@ -114,7 +118,7 @@ Server commands:
 	INVALID
 		- NAN
 		- Send back INVALID HEADER
-		
+
 
 - JUnit tests for every class
 - design patterns (please for the love of good code good)
