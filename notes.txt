@@ -97,18 +97,15 @@ Server commands:
 	Request data
 		- Request ()
 		- JSON {CINDEX, [ALL USERS]}
-	You are now coordinator
-		- Byte
-		- Ok
 	Private message
 		- {ID:..., MESSAGE: ...}
 		- {ID:..., MESSAGE: ...}
 	broadcast message
 		- {MESSAGE: ...}
 		- {MESSAGE: ...}
-	ping
-		- Ping
-		- Pong / OK
+	You are now coordinator
+		- Byte <id>
+		- Ok
 	quit
 		- On Byte
 		- NAN

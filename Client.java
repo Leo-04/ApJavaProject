@@ -4,24 +4,30 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Logger;
 
 /*
 * The client that keeps track of messages sent to it
  */
-public class Client implements MessageHandler{
+public class Client extends Thread implements MessageHandler{
     protected List<Message> messages;
+    protected int newMessages = 0;
     protected Logger log;
     protected User self;
+    protected boolean isCoordinator = false;
 
+    //Public quit flag
     public boolean quit = false;
 
     public Client(String ip, int port, String id) throws IOException {
+        super();
+
         //Create logger
         log = Logger.getLogger(Server.class.getName());
+
+        // Remove new-line characters
+        id = id.replace("\\n", "\\r").replace("\\r", " ").replace("\\u0000", " ");
 
         // Keep track of messages
         messages = new ArrayList<>();
@@ -32,22 +38,19 @@ public class Client implements MessageHandler{
         var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
         //Create the user object for this client
-        self = new User(ip, id, port, false, socket, out, in);
+        self = new User(ip, id, port, socket, out, in);
 
         sendMsg_Join(self, "");
     }
 
     /*
-     * Runs the client code to read incoming messages from server
+     * Runs the client code to read incoming message from server
      */
-    public void loopIncomingMessages() {
-        while (!quit) {
-            try {
-                handelUserIO(self);
-            } catch (IOException e) {
-                log.warning("Error within Server::run(), ignoring to continue with loop");
-                log.throwing("Server", "run", e);
-            }
+    public void handleIncomingMessage() {
+        try {
+            handelUserIO(self);
+        } catch (IOException e) {
+            log.warning("Error within Client::run(), ignoring to continue with loop");
         }
     }
 
@@ -55,6 +58,8 @@ public class Client implements MessageHandler{
     * Closes the client's socket
      */
     public void close() {
+        sendMsg_Quit(self);
+
         quit = true;
         try {
             self.out().close();
@@ -62,6 +67,51 @@ public class Client implements MessageHandler{
             self.socket().close();
         } catch (IOException e) {
             log.severe("Cannot close Client");
+        }
+    }
+
+    protected void addMessage(String msg, String id, boolean isPrivate){
+        newMessages += 1;
+        messages.add(new Message(msg, id, System.currentTimeMillis(), isPrivate));
+    }
+
+    /*
+    * Gets the list of new message since this method was called
+     */
+    public List<Message> getNewMessages(){
+        List<Message> newList = messages.subList(messages.size() - newMessages, messages.size());
+        newMessages = 0;
+        return newList;
+    }
+
+    /*
+     * Sends a message
+     */
+    public void sendMessage(String message){
+        sendMsg_Message(self, null, message);
+    }
+
+    /*
+     * Sends a private message
+     */
+    public void sendMessage(String id, String message){
+        sendMsg_PrivateMessage(self, id, message);
+    }
+
+    public void requestData(){
+        sendMsg_Data(self);
+    }
+
+    @Override public void run() {
+        while((!quit) && isCoordinator){
+            try {
+                sleep(20000); // Sleep for 20 secs
+            } catch (InterruptedException e) {
+                log.warning("Cannot sleep");
+            }
+            synchronized (this){
+                sendMsg_Data(self);
+            }
         }
     }
 
@@ -81,10 +131,64 @@ public class Client implements MessageHandler{
     public void handleMsg_Join(User user, String[] args) {
         if (args[0].equals("true")){
             log.info("We joined");
+            addMessage("You have joined", "", true);
         } else {
             log.info("We cannot join, quitting");
+            addMessage("You have not joined, bad user ID", "", true);
             close();
         }
+    }
+
+    /*
+    * New coordinator has been chosen
+    */
+    @Override
+    public void handleMsg_NewCoordinator(User user, String id) {
+        isCoordinator = user.id().equals(id);
+        if (isCoordinator){
+            addMessage("You are now the coordinator", "", false);
+
+            // Tell the server we know we are
+            sendMsg_NewCoordinator(self);
+
+            // Start 20 second loop
+            start();
+        } else {
+            addMessage("New coordinator: " + id, "", false);
+
+            // Tell the server we know we are not
+            sendMsg_NewCoordinator(new User("", id, 0, null, null, null));
+        }
+
+    }
+
+    /*
+    * Handles a new message
+    */
+    @Override
+    public void handleMsg_Message(User user, String id, String message) {
+        addMessage(message, id, false);
+    }
+
+    /*
+     * Handles a new private message
+     */
+    @Override
+    public void handleMsg_PrivateMessage(User user, String id, String message) {
+        addMessage(message, id, true);
+    }
+
+    /*
+     * Handles getting sent data
+     */
+    @Override
+    public void handleMsg_Data(User user, User[] users) {
+        StringBuilder content = new StringBuilder("Users' Data:");
+        for (User u: users){
+            content.append("\n").append(u.ip()).append(":").append(u.port()).append(" ").append(u.id());
+        }
+
+        addMessage(content.toString(), "", true);
     }
 
     /*
@@ -115,6 +219,38 @@ public class Client implements MessageHandler{
         send(self, QUIT+"");
     }
 
+    /*
+    * Sends response back saying who we think the coordinator is
+    */
+    @Override
+    public void sendMsg_NewCoordinator(User user) {
+        send(self, COORDINATOR+user.id());
+    }
+
+    /*
+    * Sends a global message from us
+    */
+    @Override
+    public void sendMsg_Message(User user, String id, String message) {
+        send(user, MESSAGE+""+user.id().length()+" "+user.id()+" "+ message);
+    }
+
+    /*
+     * Sends a global message to someone
+     */
+    @Override
+    public void sendMsg_PrivateMessage(User user, String id, String message) {
+        send(user, PRIVATE_MESSAGE+""+id.length()+" "+id+" "+message);
+    }
+
+    /*
+     * Requests data
+     */
+    @Override
+    public void sendMsg_Data(User user) {
+        send(user, DATA+"");
+    }
+
 
     /*
      * Not used
@@ -125,16 +261,15 @@ public class Client implements MessageHandler{
     }
 
     /*
-    * sends data to the server
+    * Sends data to the server
      */
     @Override
     public void send(User user, String msg) {
-        //log.info("Sending: "+msg);
         user.out().println(msg);
     }
 
     /*
-     * receives data from the client
+     * receives data from the server
      */
     @Override
     public String receive(User user) throws IOException {
@@ -143,8 +278,7 @@ public class Client implements MessageHandler{
 
         String msg = user.in().readLine();
 
-        //log.info("Received: "+msg);
-
         return msg;
     }
+
 }

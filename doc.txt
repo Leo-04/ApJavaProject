@@ -1,13 +1,32 @@
 Join:
-Client joins the room
     CLIENT: ID
-    SERVER: JOINED <false|true>
+    SERVER: JOINED<false|true>
     CLIENT: JOINED
 
 Quit:
-Client quits
     CLIENT: QUIT
 
 Quit:
-Server tells client to quit
     SERVER: QUIT
+
+Coordinator:
+    SERVER: COORDINATOR<id>
+    CLIENT: COORDINATOR<id>
+
+Coordinator:
+    SERVER: COORDINATOR<id>
+    CLIENT: COORDINATOR<wrong_id>
+    SERVER: COORDINATOR<id>
+    CLIENT: COORDINATOR<id>
+
+Message:
+    CLIENT: MESSAGE<id.length> <id> <message>
+    SERVER: MESSAGE<id.length> <id> <message>
+
+Private Message:
+    CLIENT: MESSAGE<id_to.length> <id_to> <message>
+    SERVER: MESSAGE<id.length> <id> <message>
+
+Request data:
+    CLIENT: DATA
+    SERVER: DATA\u0000<IP>:<PORT> <ID>\u0000<IP>:<PORT> <ID>\u0000<IP>:<PORT> <ID><...>

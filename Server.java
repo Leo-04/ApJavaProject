@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 public class Server extends Thread implements MessageHandler{
     // Protected attributes
     protected ArrayList<User> users; // List of all currently joined users
-    protected ServerSocket socket; // The socket for
+    protected ServerSocket socket; // The socket for the server
     protected Logger log;
 
     // Public attributes
@@ -30,16 +30,11 @@ public class Server extends Thread implements MessageHandler{
     */
     public static void main(String[] args) {
         // Get port from command args
-        if (args.length != 1){
-            System.out.println("No Port given");
-            return;
-        }
-        int port;
-        try {
-            port = Integer.parseInt(args[0]);
-        } catch (NumberFormatException e){
-            System.out.println("Port is not a number");
-            return;
+        int port = Cli.getArgPort(args);
+
+        if (port == -1){
+            Cli.outputInvalidPort();
+            System.exit(-1);
         }
 
         //Create server
@@ -62,6 +57,12 @@ public class Server extends Thread implements MessageHandler{
             log.severe("Cannot Create ServerSocket Class");
             System.exit(-1);
         }
+        //Add Shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (socket != null){
+                close();
+            }
+        }));
 
         log.info("Created Server");
     }
@@ -123,12 +124,14 @@ public class Server extends Thread implements MessageHandler{
                     clientSocket.getInetAddress().getHostAddress(),
                     id,
                     clientSocket.getPort(),
-                    false,
                     clientSocket,
                     out,
                     in
                 );
                 log.info("User ID (is" + ( (id == null)? "": " not") +" null): " + id);
+
+                // Send back join message
+                sendMsg_Join(user, (id == null)? "false" : "true");
 
                 if (id == null){
                     // Exit, its invalid ID
@@ -138,9 +141,6 @@ public class Server extends Thread implements MessageHandler{
                     out.close();
                     clientSocket.close();
                 } else {
-                    // Send back join message
-                    sendMsg_Join(user, (id == null)? "false" : "true");
-
                     // Add user
                     addUser(user);
                 }
@@ -150,11 +150,21 @@ public class Server extends Thread implements MessageHandler{
             }
         }
 
+        close();
+    }
+
+    /*
+    * Closes and quits the server
+    */
+    protected void close(){
+        quit = true;
+
         // Send QUIT to all users
         for (User user: users){
             sendMsg_Quit(user);
         }
 
+        // Close socket
         try{
             socket.close();
         } catch (IOException e){
@@ -197,15 +207,25 @@ public class Server extends Thread implements MessageHandler{
      */
     @Override
     public void handleMsg_Quit(User user) {
-        users.remove(user);
-        log.info("User Quit: " + user.id());
+        // Check if was coordinator
+        boolean wasCoordinator = users.indexOf(user) == 0;
 
+        //Remove user
+        users.remove(user);
         try {
             user.out().close();
             user.in().close();
             user.socket().close();
         } catch (IOException e) {
             log.warning("Cannot close user sockets");
+        }
+        log.info("User Quit: " + user.id());
+
+        // Assign new coordinator
+        if (wasCoordinator){
+            for (User u: users) {
+                sendMsg_NewCoordinator(u);
+            }
         }
     }
 
@@ -216,9 +236,69 @@ public class Server extends Thread implements MessageHandler{
     public void handleMsg_Join(User user, String[] args) {
         if (args[0].isEmpty()){
             log.info("User Joined: " + user.id());
+
+            // Notify them of the current coordinator
+            sendMsg_NewCoordinator(user);
         } else {
             send(user, JOINED+"");
         }
+    }
+
+    /*
+    * Check repose from client, if they are wrong, tell them the correct coordinator
+     */
+    @Override
+    public void handleMsg_NewCoordinator(User user, String id) {
+        if (users.size() == 0){
+            return;
+        }
+
+        if (!users.get(0).id().equals(id)){
+            sendMsg_NewCoordinator(user);
+        }
+    }
+
+    /*
+    * When receiving a message from a client, send it to all clients
+    */
+    @Override
+    public void handleMsg_Message(User user, String id, String message) {
+        for (User u: users){
+            sendMsg_Message(u, user.id(), message);
+        }
+    }
+
+    /*
+     * When receiving a private message from a client, send it to correct client
+     */
+    @Override
+    public void handleMsg_PrivateMessage(User user, String id, String message) {
+        // Find user to send to
+        User user_to_send_to = null;
+        for (User u: users){
+            if (u.id().equals(id)){
+                user_to_send_to = u;
+                break;
+            }
+        }
+
+        // Check if user exists
+        if (user_to_send_to == null){
+            log.severe("Unknown user ID: "+id);
+            return;
+        }
+
+        // Send messages
+        sendMsg_PrivateMessage(user_to_send_to, user.id(), message);
+        sendMsg_PrivateMessage(user, user.id(), message);
+    }
+
+    /*
+    * User asked for data, send it to them
+    */
+    @Override
+    public void handleMsg_Data(User user, User[] args) {
+        sendMsg_Data(user);
     }
 
     /*
@@ -245,6 +325,49 @@ public class Server extends Thread implements MessageHandler{
         send(user, QUIT+"");
     }
 
+    /*
+    * Sends who the current coordinator is to a user
+    */
+    @Override
+    public void sendMsg_NewCoordinator(User user) {
+        log.info("New Coordinator: " + users.get(0).id());
+        send(user, COORDINATOR+users.get(0).id());
+    }
+
+    /*
+    * Send a message to a client
+    */
+    @Override
+    public void sendMsg_Message(User user, String id, String message) {
+        log.info("Sending message to: <" + user.id() +"> From <" + id +"> " + message);
+        send(user, MESSAGE+""+id.length()+" "+id+" "+message);
+    }
+
+    /*
+    * send a private message to a client
+    */
+    @Override
+    public void sendMsg_PrivateMessage(User user, String id, String message) {
+        log.info("Sending private message to: <" + user.id() +"> From <" + id +"> " + message);
+        send(user, PRIVATE_MESSAGE+""+id.length()+" "+id+" "+message);
+    }
+
+    /*
+    * Send data to a client
+    */
+    @Override
+    public void sendMsg_Data(User user) {
+        log.info("Sending data to user: <" +user.id() + ">");
+
+        String message = "";
+
+        for (User u: users){
+            message += "\u0000" + u.ip() + ":" + u.port() + " " + u.id();
+        }
+
+        send(user, DATA+message);
+    }
+
     @Override
     public void sendMsg(char command, User user, String[] args) {
         log.warning("Sending unknown message " + command + ": " + Arrays.toString(args));
@@ -255,8 +378,6 @@ public class Server extends Thread implements MessageHandler{
      */
     @Override
     public void send(User user, String msg) {
-        //log.info("Sending to <"+user.id()+"> "+msg);
-
         user.out().println(msg);
     }
 
@@ -268,10 +389,8 @@ public class Server extends Thread implements MessageHandler{
         //Wait for data
         while (!user.in().ready()){}
 
-        //Read datra
+        //Read data
         String msg = user.in().readLine();
-
-        //log.info("Received from <"+user.id()+"> "+msg);
 
         return msg;
     }
