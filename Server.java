@@ -71,7 +71,7 @@ public class Server extends Thread implements MessageHandler{
     * Starts all server loops
      */
     @Override public void start(){
-        if (socket == null){
+        if (socket == null) {
             log.severe("Socket was not created");
             return;
         }
@@ -161,7 +161,7 @@ public class Server extends Thread implements MessageHandler{
 
         // Send QUIT to all users
         for (User user: users){
-            sendMsg_Quit(user);
+            sendMsg_Quit(user, "");
         }
 
         // Close socket
@@ -206,7 +206,7 @@ public class Server extends Thread implements MessageHandler{
      * Handles users sending the "QUIT" message
      */
     @Override
-    public void handleMsg_Quit(User user) {
+    public void handleMsg_Quit(User user, String id) {
         // Check if was coordinator
         boolean wasCoordinator = users.indexOf(user) == 0;
 
@@ -226,6 +226,9 @@ public class Server extends Thread implements MessageHandler{
             for (User u: users) {
                 sendMsg_NewCoordinator(u);
             }
+        }
+        for (User u: users) {
+            sendMsg_Quit(u, user.id());
         }
     }
 
@@ -284,7 +287,8 @@ public class Server extends Thread implements MessageHandler{
 
         // Check if user exists
         if (user_to_send_to == null){
-            log.severe("Unknown user ID: "+id);
+            sendMsg_PrivateMessage(user, "", "User not found: " + id);
+            log.info("Unknown user ID: "+id);
             return;
         }
 
@@ -321,8 +325,8 @@ public class Server extends Thread implements MessageHandler{
      * Sends the message to force quit a user
      */
     @Override
-    public void sendMsg_Quit(User user) {
-        send(user, QUIT+"");
+    public void sendMsg_Quit(User user, String id) {
+        send(user, QUIT+id);
     }
 
     /*

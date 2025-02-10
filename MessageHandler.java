@@ -45,7 +45,7 @@ public interface MessageHandler {
 
             return new String[]{id, message};
         } else if (command==DATA){
-            //Check if its a request or data
+            //Check if it's a request or data
             if (msg.isEmpty()){
                 return new String[]{};
             }
@@ -65,7 +65,7 @@ public interface MessageHandler {
     default void handelReceivedMessage(char command, User user, String[] args) {
         switch (command) {
             case JOINED -> handleMsg_Join(user, args);
-            case QUIT -> handleMsg_Quit(user);
+            case QUIT -> handleMsg_Quit(user, args[0]);
             case COORDINATOR -> handleMsg_NewCoordinator(user, args[0]);
             case MESSAGE -> handleMsg_Message(user, args[0], args[1]);
             case PRIVATE_MESSAGE -> handleMsg_PrivateMessage(user, args[0], args[1]);
@@ -134,7 +134,7 @@ public interface MessageHandler {
         handelReceivedMessage(command, user, args);
     }
 
-    void handleMsg_Quit(User user);
+    void handleMsg_Quit(User user, String id);
     void handleMsg_Join(User user, String[] args);
     void handleMsg_NewCoordinator(User user, String id);
     void handleMsg_Message(User user, String id, String message);
@@ -143,7 +143,7 @@ public interface MessageHandler {
     void handleMsg(char command, User user, String[] args);
 
     void sendMsg_Join(User user, String did_join);
-    void sendMsg_Quit(User user);
+    void sendMsg_Quit(User user, String id);
     void sendMsg_NewCoordinator(User user);
     void sendMsg_Message(User user, String id, String message);
     void sendMsg_PrivateMessage(User user, String id, String message);

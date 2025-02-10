@@ -5,6 +5,7 @@ Join:
 
 Quit:
     CLIENT: QUIT
+    SERVER: QUIT<id>
 
 Quit:
     SERVER: QUIT
