@@ -6,8 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.logging.Logger;
 
 
@@ -21,9 +20,15 @@ public class Server extends Thread implements MessageHandler{
     protected ArrayList<User> users; // List of all currently joined users
     protected ServerSocket socket; // The socket for the server
     protected Logger log;
+    // Tracks if clients are connected
+    protected HashMap<String, Boolean> alive;
+    protected Timer timer;
+
+    protected static final int PING_LOOP_TIME = 20_000;
 
     // Public attributes
     public boolean quit = false;
+
 
     /*
     * Creates a server instance and runs it
@@ -51,6 +56,15 @@ public class Server extends Thread implements MessageHandler{
         log = Logger.getLogger(Server.class.getName());
         users = new ArrayList<>();
 
+        // Start ping loop
+        alive = new HashMap<>();
+        timer = new Timer();
+        timer.schedule( new TimerTask() {
+            public void run() {
+                checkClientsAlive();
+            }
+        }, PING_LOOP_TIME, PING_LOOP_TIME);
+
         try {
             socket = new ServerSocket(port);
         } catch (IOException e) {
@@ -71,7 +85,7 @@ public class Server extends Thread implements MessageHandler{
     * Starts all server loops
      */
     @Override public void start(){
-        if (socket == null) {
+        if (socket == null){
             log.severe("Socket was not created");
             return;
         }
@@ -159,9 +173,13 @@ public class Server extends Thread implements MessageHandler{
     protected void close(){
         quit = true;
 
+        // kill timer
+        timer.cancel();
+        timer.purge();
+
         // Send QUIT to all users
         for (User user: users){
-            sendMsg_Quit(user, "");
+            sendMsg_Quit(user);
         }
 
         // Close socket
@@ -170,6 +188,7 @@ public class Server extends Thread implements MessageHandler{
         } catch (IOException e){
             log.severe("Cannot close socket");
         }
+
     }
 
     /*
@@ -179,6 +198,8 @@ public class Server extends Thread implements MessageHandler{
         log.info("Adding user: "+user.id());
 
         users.add(user);
+
+        alive.put(user.id(), true);
     }
 
     /*
@@ -203,10 +224,38 @@ public class Server extends Thread implements MessageHandler{
     }
 
     /*
+     * Check if clients are still connected
+     */
+    protected void checkClientsAlive(){
+        synchronized(users){
+            // Loop users
+            for(int i = users.size() - 1; i >= 0; i--){
+                User user = users.get(i);
+                String id = user.id();
+
+                // Send data to coordinator
+                if (i == 0){
+                    sendMsg_Data(user);
+                }
+
+                if (!alive.containsKey(id) || !alive.get(id)){
+                    //Force quit
+                    handleMsg_Quit(user);
+                    sendMsg_Quit(user);
+                } else {
+                    // Re-Ping client
+                    alive.put(user.id(), false);
+                    sendMsg_PingPong(user);
+                }
+            }
+        }
+    }
+
+    /*
      * Handles users sending the "QUIT" message
      */
     @Override
-    public void handleMsg_Quit(User user, String id) {
+    public void handleMsg_Quit(User user) {
         // Check if was coordinator
         boolean wasCoordinator = users.indexOf(user) == 0;
 
@@ -226,9 +275,6 @@ public class Server extends Thread implements MessageHandler{
             for (User u: users) {
                 sendMsg_NewCoordinator(u);
             }
-        }
-        for (User u: users) {
-            sendMsg_Quit(u, user.id());
         }
     }
 
@@ -287,8 +333,7 @@ public class Server extends Thread implements MessageHandler{
 
         // Check if user exists
         if (user_to_send_to == null){
-            sendMsg_PrivateMessage(user, "", "User not found: " + id);
-            log.info("Unknown user ID: "+id);
+            log.severe("Unknown user ID: "+id);
             return;
         }
 
@@ -303,6 +348,15 @@ public class Server extends Thread implements MessageHandler{
     @Override
     public void handleMsg_Data(User user, User[] args) {
         sendMsg_Data(user);
+    }
+
+    /*
+    * Receives pong from client
+    */
+    @Override
+    public void handleMsg_PingPong(User user) {
+        log.info("Pong: "+user.id());
+        alive.put(user.id(), true);
     }
 
     /*
@@ -325,8 +379,8 @@ public class Server extends Thread implements MessageHandler{
      * Sends the message to force quit a user
      */
     @Override
-    public void sendMsg_Quit(User user, String id) {
-        send(user, QUIT+id);
+    public void sendMsg_Quit(User user) {
+        send(user, QUIT+"");
     }
 
     /*
@@ -370,6 +424,15 @@ public class Server extends Thread implements MessageHandler{
         }
 
         send(user, DATA+message);
+    }
+
+    /*
+    * Sends PING to client
+    */
+    @Override
+    public void sendMsg_PingPong(User user) {
+        log.info("Ping: "+user.id());
+        send(user, PING_PONG+"");
     }
 
     @Override

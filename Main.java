@@ -32,31 +32,31 @@ public class Main extends Thread {
     @Override public void run() {
         Cli.outputOptionPrompt();
 
-            mainLoop:
-            while (!client.quit){
-                String option = Cli.inputOption();
+        mainLoop:
+        while (!client.quit){
+            String option = Cli.inputOption();
 
-                String id, message;
-                switch (option) {
-                    case "" -> {}
-                    case "1" -> {
-                        message = Cli.inputMessage();
-                        client.sendMessage(message);
-                    }
-                    case "2" -> {
-                        id = Cli.inputID();
-                        message = Cli.inputMessage();
-                        synchronized (client){client.sendMessage(id, message);}
-                    }
-                    case "3" -> {
-                        synchronized (client){client.requestData();}
-                    }
-                    case "4" -> {
-                        break mainLoop;
-                    }
-                    default -> Cli.outputInvalidInput(option);
+            String id, message;
+            switch (option) {
+                case "" -> {}
+                case "1" -> {
+                    message = Cli.inputMessage();
+                    client.sendMessage(message);
                 }
+                case "2" -> {
+                    id = Cli.inputID();
+                    message = Cli.inputMessage();
+                    synchronized (client){client.sendMessage(id, message);}
+                }
+                case "3" -> {
+                    synchronized (client){client.requestData();}
+                }
+                case "4" -> {
+                    break mainLoop;
+                }
+                default -> Cli.outputInvalidInput(option);
             }
+        }
 
         client.close();
     }

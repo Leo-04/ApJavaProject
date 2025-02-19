@@ -16,12 +16,13 @@ public interface MessageHandler {
     public static final char MESSAGE = 'M';
     public static final char PRIVATE_MESSAGE = 'P';
     public static final char DATA = 'D';
+    public static final char PING_PONG = 'G';
 
     /*
     * Decodes message from its first byte (command byte)
      */
     default String[] decodeMessageArguments(char command, String msg){
-        if (command == JOINED || command == COORDINATOR || command == QUIT) {
+        if (command == JOINED || command == COORDINATOR || command == QUIT || command == PING_PONG) {
             return new String[]{msg};
         }
         else if (command == MESSAGE || command == PRIVATE_MESSAGE){
@@ -45,7 +46,7 @@ public interface MessageHandler {
 
             return new String[]{id, message};
         } else if (command==DATA){
-            //Check if it's a request or data
+            //Check if its a request or data
             if (msg.isEmpty()){
                 return new String[]{};
             }
@@ -65,10 +66,11 @@ public interface MessageHandler {
     default void handelReceivedMessage(char command, User user, String[] args) {
         switch (command) {
             case JOINED -> handleMsg_Join(user, args);
-            case QUIT -> handleMsg_Quit(user, args[0]);
+            case QUIT -> handleMsg_Quit(user);
             case COORDINATOR -> handleMsg_NewCoordinator(user, args[0]);
             case MESSAGE -> handleMsg_Message(user, args[0], args[1]);
             case PRIVATE_MESSAGE -> handleMsg_PrivateMessage(user, args[0], args[1]);
+            case PING_PONG -> handleMsg_PingPong(user);
             case DATA -> {
                 //Loop though each entry
                 User[] users = new User[args.length];
@@ -134,20 +136,22 @@ public interface MessageHandler {
         handelReceivedMessage(command, user, args);
     }
 
-    void handleMsg_Quit(User user, String id);
+    void handleMsg_Quit(User user);
     void handleMsg_Join(User user, String[] args);
     void handleMsg_NewCoordinator(User user, String id);
     void handleMsg_Message(User user, String id, String message);
     void handleMsg_PrivateMessage(User user, String id, String message);
     void handleMsg_Data(User user, User[] users);
+    void handleMsg_PingPong(User user);
     void handleMsg(char command, User user, String[] args);
 
     void sendMsg_Join(User user, String did_join);
-    void sendMsg_Quit(User user, String id);
+    void sendMsg_Quit(User user);
     void sendMsg_NewCoordinator(User user);
     void sendMsg_Message(User user, String id, String message);
     void sendMsg_PrivateMessage(User user, String id, String message);
     void sendMsg_Data(User user);
+    void sendMsg_PingPong(User user);
     void sendMsg(char msg, User user, String[] args);
 
     void send(User user, String msg);

@@ -10,7 +10,7 @@ import java.util.logging.Logger;
 /*
 * The client that keeps track of messages sent to it
  */
-public class Client extends Thread implements MessageHandler{
+public class Client implements MessageHandler{
     protected List<Message> messages;
     protected int newMessages = 0;
     protected Logger log;
@@ -58,7 +58,7 @@ public class Client extends Thread implements MessageHandler{
     * Closes the client's socket
      */
     public void close() {
-        sendMsg_Quit(self, "");
+        sendMsg_Quit(self);
 
         quit = true;
         try {
@@ -102,30 +102,13 @@ public class Client extends Thread implements MessageHandler{
         sendMsg_Data(self);
     }
 
-    @Override public void run() {
-        while((!quit) && isCoordinator){
-            try {
-                sleep(20000); // Sleep for 20 secs
-            } catch (InterruptedException e) {
-                log.warning("Cannot sleep");
-            }
-            synchronized (this){
-                sendMsg_Data(self);
-            }
-        }
-    }
-    
     /*
      * Handles "QUIT" message from server
      */
     @Override
-    public void handleMsg_Quit(User user, String id) {
-        if (id.isEmpty() || user.id().equals(id)){
-            log.info("Quitting");
-            close();
-        } else {
-            addMessage("User quit: " + id, "", false);
-        }
+    public void handleMsg_Quit(User user) {
+        log.info("Quitting");
+        close();
     }
 
     /*
@@ -154,9 +137,6 @@ public class Client extends Thread implements MessageHandler{
 
             // Tell the server we know we are
             sendMsg_NewCoordinator(self);
-
-            // Start 20 second loop
-            start();
         } else {
             addMessage("New coordinator: " + id, "", false);
 
@@ -187,12 +167,21 @@ public class Client extends Thread implements MessageHandler{
      */
     @Override
     public void handleMsg_Data(User user, User[] users) {
-        StringBuilder content = new StringBuilder("Users' Data:\n(Coordinator) ");
+        StringBuilder content = new StringBuilder("Users' Data:");
         for (User u: users){
-            content.append(u.ip()).append(":").append(u.port()).append(" ").append(u.id()).append("\n");
+            content.append("\n").append(u.ip()).append(":").append(u.port()).append(" ").append(u.id());
         }
 
         addMessage(content.toString(), "", true);
+    }
+
+    /*
+    * Send pong back from ping
+    */
+    @Override
+    public void handleMsg_PingPong(User user) {
+        log.info("Pong: "+user.id());
+        sendMsg_PingPong(user);
     }
 
     /*
@@ -218,7 +207,7 @@ public class Client extends Thread implements MessageHandler{
      * Sends the QUIT message to the server
      */
     @Override
-    public void sendMsg_Quit(User user, String id) {
+    public void sendMsg_Quit(User user) {
         quit = true;
         send(self, QUIT+"");
     }
@@ -253,6 +242,14 @@ public class Client extends Thread implements MessageHandler{
     @Override
     public void sendMsg_Data(User user) {
         send(user, DATA+"");
+    }
+
+    /*
+    * Sends pong back
+    */
+    @Override
+    public void sendMsg_PingPong(User user) {
+        send(user, PING_PONG+"");
     }
 
 
