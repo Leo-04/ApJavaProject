@@ -58,7 +58,7 @@ public class Client implements MessageHandler{
     * Closes the client's socket
      */
     public void close() {
-        sendMsg_Quit(self);
+        sendMsg_Quit(self, "");
 
         quit = true;
         try {
@@ -106,9 +106,13 @@ public class Client implements MessageHandler{
      * Handles "QUIT" message from server
      */
     @Override
-    public void handleMsg_Quit(User user) {
-        log.info("Quitting");
-        close();
+    public void handleMsg_Quit(User user, String id) {
+        if (id.isEmpty() || user.id().equals(id)){
+            log.info("Quitting");
+            close();
+        } else {
+            addMessage("User quit: " + id, "", false);
+        }
     }
 
     /*
@@ -167,9 +171,9 @@ public class Client implements MessageHandler{
      */
     @Override
     public void handleMsg_Data(User user, User[] users) {
-        StringBuilder content = new StringBuilder("Users' Data:");
+        StringBuilder content = new StringBuilder("Users' Data:\n(Coordinator) ");
         for (User u: users){
-            content.append("\n").append(u.ip()).append(":").append(u.port()).append(" ").append(u.id());
+            content.append(u.ip()).append(":").append(u.port()).append(" ").append(u.id()).append("\n");
         }
 
         addMessage(content.toString(), "", true);
@@ -207,7 +211,7 @@ public class Client implements MessageHandler{
      * Sends the QUIT message to the server
      */
     @Override
-    public void sendMsg_Quit(User user) {
+    public void sendMsg_Quit(User user, String id) {
         quit = true;
         send(self, QUIT+"");
     }

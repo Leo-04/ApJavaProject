@@ -23,6 +23,8 @@ public interface Cli {
         int port;
         try {
             port = Integer.parseInt(args[0]);
+
+            if (port < 0) return -1;
         } catch (NumberFormatException e){
             return -1;
         }
