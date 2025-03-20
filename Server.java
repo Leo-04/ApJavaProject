@@ -233,11 +233,6 @@ public class Server extends Thread implements MessageHandler{
                 User user = users.get(i);
                 String id = user.id();
 
-                // Send data to coordinator
-                if (i == 0){
-                    sendMsg_Data(user);
-                }
-
                 if (!alive.containsKey(id) || !alive.get(id)){
                     //Force quit
                     handleMsg_Quit(user, user.id());
@@ -248,6 +243,9 @@ public class Server extends Thread implements MessageHandler{
                     sendMsg_PingPong(user);
                 }
             }
+
+            // Send data to coordinator
+            sendMsg_Data(users.getFirst());
         }
     }
 
